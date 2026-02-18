@@ -1,9 +1,10 @@
 import User  from "../model/userModel.js";
+import { verifyEmail } from "../emailVerify/verifyEmail.js";
+import { sendOTP } from "../emailVerify/sendOTP.js";
+import Sessions from "../model/sessionModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import 'dotenv/config'
-import { verifyEmail } from "../emailVerify/verifyEmail.js";
-import Sessions from "../model/sessionModel.js";
 
 
 const registerUser = async (req, res) => {
@@ -217,4 +218,82 @@ const logout = async (req, res) => {
     }
 }
 
-export { registerUser, verify, reverify, login, logout };
+const forgetPassword = async (req, res) =>{
+    try {
+        const {email} = req.body
+
+        const user = await User.findOne({email})
+        if(!user){
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const optExpiry = new Date(Date.now() + 10 * 60 * 1000);  // 10 min
+        user.otp = otp;
+        user.otpExpiry = optExpiry;
+        await user.save();
+        
+        await sendOTP(otp, email);
+        return res.status(200).json({
+            success: true,
+            message: "OTP sent successfully",
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: error.message,
+        });
+    }
+}
+
+const verifyOTP = async(req,res) =>{
+    try {
+        const {otp} = req.body
+        const email = req.params.email
+
+        if(!otp){
+            return res.status(400).json({
+                success: false,
+                message: "OTP is required",
+            });
+        }
+        const user = await User.findOne({email})
+        if(!user){
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+        if(user.otpExpiry < Date.now()){
+            return res.status(400).json({
+                success: false,
+                message: "OTP expired",
+            });
+        }
+        if(user.otp !== otp){
+            return res.status(400).json({
+                success: false,
+                message: "Invalid OTP",
+            });
+        }
+
+        user.otp = null;
+        user.otpExpiry = null;
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "OTP verified successfully",
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: error.message,
+        });
+    }
+}
+
+export { registerUser, verify, reverify, login, logout, forgetPassword, verifyOTP};
