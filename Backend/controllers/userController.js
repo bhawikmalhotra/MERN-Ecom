@@ -3,6 +3,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import 'dotenv/config'
 import { verifyEmail } from "../emailVerify/verifyEmail.js";
+import Sessions from "../model/sessionModel.js";
+
 
 const registerUser = async (req, res) => {
   try {
@@ -169,9 +171,19 @@ const login = async (req, res) => {
         user.isLoggedIn = true
         await user.save();
 
+
+        // Checking existing session
+        const existingSession = await Sessions.findOne({userId: user._id})
+        if (existingSession){
+            await Sessions.deleteOne({userId: user._id})
+        }
+
+        await Sessions.create({userId: user._id})
+
         return res.status(200).json({
             success: true,
-            message: "User logged in successfully",
+            message: `Welcome back ${user.firstName}`,
+            user: user,
             accessToken: accessToken,
             refreshToken: refreshToken,
         });
@@ -184,4 +196,25 @@ const login = async (req, res) => {
     }
 }
 
-export { registerUser, verify, reverify, login };
+const logout = async (req, res) => {
+    try {
+        const userId = req.id;
+        await Sessions.deleteOne({userId: userId});
+        const user = await User.findById(userId);
+        user.isLoggedIn = false;
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "User logged out successfully",
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Failed to logout user",
+        });
+        
+    }
+}
+
+export { registerUser, verify, reverify, login, logout };
