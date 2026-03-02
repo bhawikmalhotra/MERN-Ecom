@@ -309,14 +309,34 @@ const changePassword = async (req, res) => {
         message: "All fields are required",
       });
     }
-
-    const hashedPassword = bycript.hash(newPassword, 10);
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match",
+      });
+    }
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     await user.save();
 
     return res.status(200).json({
       success: true,
       message: "Password changed successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+const allUser = async (req, res) => {
+  try {
+    const users = await User.find();
+    return res.status(200).json({
+      success: true,
+      users: users,
     });
   } catch (error) {
     return res.status(500).json({
@@ -334,5 +354,6 @@ export {
   logout,
   forgetPassword,
   verifyOTP,
-  changePassword
+  changePassword,
+  allUser
 };

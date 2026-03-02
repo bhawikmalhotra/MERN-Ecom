@@ -27,6 +27,7 @@ const isAuthorized = async (req, res, next) => {
                 message: "User not found",
             });
         }
+        req.user = user
         req.id = user._id;
         next();
     } catch (error) {
@@ -38,4 +39,18 @@ const isAuthorized = async (req, res, next) => {
     }
 }
 
-export default isAuthorized;
+const isAdmin = async (req, res, next) => {
+    try {
+        if(req.user && req.user.role === "admin"){
+            next();
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Access Denied: ADMIN only",
+            error: error.message,
+        });
+    }
+}
+
+export {isAuthorized, isAdmin};
